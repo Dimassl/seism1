@@ -8,13 +8,13 @@ import websockets
 import os
 
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "UGMada",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",         "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut", "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta",   "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",        "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",        "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",     "thr_on": 5.0, "thr_off": 0.8},
 ]
 
-WINDOW_SEC = 120
+WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
 
@@ -31,42 +31,41 @@ lock = threading.Lock()
 # ── SeedLink Client ───────────────────────────────────────────
 class MultiStationClient(EasySeedLinkClient):
     def on_data(self, trace):
-    sta = trace.stats.station
-    if sta not in buffers:
-        return
-    with lock:
-        buf = buffers[sta]
-        sr  = float(trace.stats.sampling_rate)
-        buf["sr"] = sr
+        sta = trace.stats.station
+        if sta not in buffers:
+            return
+        with lock:
+            buf = buffers[sta]
+            sr  = float(trace.stats.sampling_rate)
+            buf["sr"] = sr
 
-        # Buat ulang deque kalau maxlen perlu berubah
-        new_maxlen = int(WINDOW_SEC * sr)
-        if buf["data"].maxlen != new_maxlen:
-            buf["data"] = collections.deque(buf["data"], maxlen=new_maxlen)
+            new_maxlen = int(WINDOW_SEC * sr)
+            if buf["data"].maxlen != new_maxlen:
+                buf["data"] = collections.deque(buf["data"], maxlen=new_maxlen)
 
-        for s in trace.data:
-            buf["data"].append(float(s))
-        buf["status"] = "live"
+            for s in trace.data:
+                buf["data"].append(float(s))
+            buf["status"] = "live"
 
-        # STA/LTA
-        arr = np.array(buf["data"])
-        sr_int = int(sr)
-        cfg = next((c for c in STATIONS if c["sta"] == sta), None)
-        if cfg and len(arr) > sr_int * 20:
-            cft    = classic_sta_lta(arr, int(1 * sr_int), int(10 * sr_int))
-            on_off = trigger_onset(cft, cfg["thr_on"], cfg["thr_off"])
-            buf["triggered"] = len(on_off) > 0
-            if buf["triggered"]:
-                peak = float(np.abs(arr).max())
-                if peak > 0:
-                    ml = np.log10(peak) + 3 * np.log10(8.0 * 500 / 111.19) - 2.92
-                    buf["magnitude"] = round(ml, 2)
-            else:
-                buf["magnitude"] = None
+            arr    = np.array(buf["data"])
+            sr_int = int(sr)
+            cfg    = next((c for c in STATIONS if c["sta"] == sta), None)
+            if cfg and len(arr) > sr_int * 20:
+                cft    = classic_sta_lta(arr, int(1 * sr_int), int(10 * sr_int))
+                on_off = trigger_onset(cft, cfg["thr_on"], cfg["thr_off"])
+                buf["triggered"] = len(on_off) > 0
+                if buf["triggered"]:
+                    peak = float(np.abs(arr).max())
+                    if peak > 0:
+                        ml = np.log10(peak) + 3 * np.log10(8.0 * 500 / 111.19) - 2.92
+                        buf["magnitude"] = round(ml, 2)
+                else:
+                    buf["magnitude"] = None
 
     def on_seedlink_error(self):
         print("SeedLink error, reconnecting...")
 
+# ── SeedLink Runner ───────────────────────────────────────────
 def run_seedlink():
     while True:
         try:
@@ -97,9 +96,9 @@ def compute_spectrogram(data, sr, n_freq=64):
         Sxx_cut   = Sxx[freq_mask, :]
         if Sxx_cut.size == 0:
             return []
-        Sxx_db   = 10 * np.log10(Sxx_cut + 1e-10)
+        Sxx_db     = 10 * np.log10(Sxx_cut + 1e-10)
         vmin, vmax = Sxx_db.min(), Sxx_db.max()
-        Sxx_norm = (Sxx_db - vmin) / (vmax - vmin) if vmax > vmin else np.zeros_like(Sxx_db)
+        Sxx_norm   = (Sxx_db - vmin) / (vmax - vmin) if vmax > vmin else np.zeros_like(Sxx_db)
         if Sxx_norm.shape[0] != n_freq:
             Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1))
         if Sxx_norm.shape[1] > 100:
@@ -109,7 +108,7 @@ def compute_spectrogram(data, sr, n_freq=64):
         print(f"Spektrogram error: {e}")
         return []
 
-# ── WebSocket ─────────────────────────────────────────────────
+# ── WebSocket Handler ─────────────────────────────────────────
 async def handler(websocket):
     print(f"Client terhubung: {websocket.remote_address}")
     try:
@@ -133,6 +132,7 @@ async def handler(websocket):
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnect")
 
+# ── Main ──────────────────────────────────────────────────────
 async def main():
     print("Menunggu SeedLink data (10 detik)...")
     await asyncio.sleep(10)
