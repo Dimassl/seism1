@@ -1,5 +1,3 @@
-
-
 import asyncio, json, threading, time, collections
 import numpy as np
 from obspy.clients.seedlink.easyseedlink import EasySeedLinkClient
@@ -33,33 +31,38 @@ lock = threading.Lock()
 # ── SeedLink Client ───────────────────────────────────────────
 class MultiStationClient(EasySeedLinkClient):
     def on_data(self, trace):
-        sta = trace.stats.station
-        if sta not in buffers:
-            return
-        with lock:
-            buf = buffers[sta]
-            buf["sr"] = float(trace.stats.sampling_rate)
-            buf["data"].maxlen = int(WINDOW_SEC * buf["sr"])
+    sta = trace.stats.station
+    if sta not in buffers:
+        return
+    with lock:
+        buf = buffers[sta]
+        sr  = float(trace.stats.sampling_rate)
+        buf["sr"] = sr
 
-            for s in trace.data:
-                buf["data"].append(float(s))
-            buf["status"] = "live"
+        # Buat ulang deque kalau maxlen perlu berubah
+        new_maxlen = int(WINDOW_SEC * sr)
+        if buf["data"].maxlen != new_maxlen:
+            buf["data"] = collections.deque(buf["data"], maxlen=new_maxlen)
 
-            # STA/LTA
-            arr = np.array(buf["data"])
-            sr  = int(buf["sr"])
-            cfg = next((c for c in STATIONS if c["sta"] == sta), None)
-            if cfg and len(arr) > sr * 20:
-                cft    = classic_sta_lta(arr, int(1 * sr), int(10 * sr))
-                on_off = trigger_onset(cft, cfg["thr_on"], cfg["thr_off"])
-                buf["triggered"] = len(on_off) > 0
-                if buf["triggered"]:
-                    peak = float(np.abs(arr).max())
-                    if peak > 0:
-                        ml = np.log10(peak) + 3 * np.log10(8.0 * 500 / 111.19) - 2.92
-                        buf["magnitude"] = round(ml, 2)
-                else:
-                    buf["magnitude"] = None
+        for s in trace.data:
+            buf["data"].append(float(s))
+        buf["status"] = "live"
+
+        # STA/LTA
+        arr = np.array(buf["data"])
+        sr_int = int(sr)
+        cfg = next((c for c in STATIONS if c["sta"] == sta), None)
+        if cfg and len(arr) > sr_int * 20:
+            cft    = classic_sta_lta(arr, int(1 * sr_int), int(10 * sr_int))
+            on_off = trigger_onset(cft, cfg["thr_on"], cfg["thr_off"])
+            buf["triggered"] = len(on_off) > 0
+            if buf["triggered"]:
+                peak = float(np.abs(arr).max())
+                if peak > 0:
+                    ml = np.log10(peak) + 3 * np.log10(8.0 * 500 / 111.19) - 2.92
+                    buf["magnitude"] = round(ml, 2)
+            else:
+                buf["magnitude"] = None
 
     def on_seedlink_error(self):
         print("SeedLink error, reconnecting...")
