@@ -1,3 +1,7 @@
+!pip install obspy websockets nest_asyncio scipy -q
+!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared
+!chmod +x /usr/local/bin/cloudflared
+
 import asyncio, json, threading, time, collections
 import numpy as np
 from obspy.clients.seedlink.easyseedlink import EasySeedLinkClient
