@@ -6,6 +6,7 @@ from scipy import signal as scipy_signal
 from scipy.ndimage import zoom
 import websockets
 import os
+from datetime import datetime, timezone
 
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta",   "thr_on": 5.0, "thr_off": 0.8},
@@ -17,6 +18,8 @@ STATIONS = [
 WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
+N_FREQ      = 64
+N_NEW_COLS  = 5   # kolom baru per push (tiap 1 detik)
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
@@ -80,30 +83,37 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-# ── Spektrogram ───────────────────────────────────────────────
-def compute_spectrogram(data, sr, n_freq=64):
+# ── Spektrogram — kirim kolom baru saja ──────────────────────
+def get_latest_spec_cols(data, sr, n_freq=N_FREQ, n_cols=N_NEW_COLS):
+    """Hitung spektrogram, kembalikan hanya n_cols kolom terbaru"""
     arr = np.array(data, dtype=float)
     if len(arr) < int(sr) * 2:
         return []
     try:
+        nperseg  = min(128, len(arr) // 4)
+        noverlap = min(64,  len(arr) // 8)
+
         f, t, Sxx = scipy_signal.spectrogram(
             arr, fs=sr,
-            nperseg  = min(128, len(arr) // 4),
-            noverlap = min(64,  len(arr) // 8),
+            nperseg  = nperseg,
+            noverlap = noverlap,
             nfft     = 256,
         )
         freq_mask = (f >= 0.5) & (f <= 10.0)
         Sxx_cut   = Sxx[freq_mask, :]
         if Sxx_cut.size == 0:
             return []
+
         Sxx_db     = 10 * np.log10(Sxx_cut + 1e-10)
         vmin, vmax = Sxx_db.min(), Sxx_db.max()
         Sxx_norm   = (Sxx_db - vmin) / (vmax - vmin) if vmax > vmin else np.zeros_like(Sxx_db)
+
         if Sxx_norm.shape[0] != n_freq:
             Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1))
-        if Sxx_norm.shape[1] > 100:
-            Sxx_norm = Sxx_norm[:, -100:]
-        return np.round(Sxx_norm, 3).tolist()
+
+        # Ambil n_cols kolom terakhir, transpose jadi list of columns
+        last = Sxx_norm[:, -n_cols:]            # shape: (n_freq, n_cols)
+        return np.round(last.T, 3).tolist()     # shape: (n_cols, n_freq)
     except Exception as e:
         print(f"Spektrogram error: {e}")
         return []
@@ -113,19 +123,21 @@ async def handler(websocket):
     print(f"Client terhubung: {websocket.remote_address}")
     try:
         while True:
+            now_utc = datetime.now(timezone.utc).timestamp()
             with lock:
                 payload = [{
-                    "station"    : cfg["sta"],
-                    "label"      : cfg["label"],
-                    "data"       : list(buffers[cfg["sta"]]["data"])[-500:],
-                    "spectrogram": compute_spectrogram(
+                    "station"  : cfg["sta"],
+                    "label"    : cfg["label"],
+                    "data"     : list(buffers[cfg["sta"]]["data"])[-500:],
+                    "spec_new" : get_latest_spec_cols(
                         list(buffers[cfg["sta"]]["data"]),
                         buffers[cfg["sta"]]["sr"],
                     ),
-                    "status"     : buffers[cfg["sta"]]["status"],
-                    "triggered"  : buffers[cfg["sta"]]["triggered"],
-                    "magnitude"  : buffers[cfg["sta"]]["magnitude"],
-                    "sr"         : buffers[cfg["sta"]]["sr"],
+                    "spec_time": now_utc,   # timestamp UTC kolom terbaru
+                    "status"   : buffers[cfg["sta"]]["status"],
+                    "triggered": buffers[cfg["sta"]]["triggered"],
+                    "magnitude": buffers[cfg["sta"]]["magnitude"],
+                    "sr"       : buffers[cfg["sta"]]["sr"],
                 } for cfg in STATIONS]
             await websocket.send(json.dumps(payload))
             await asyncio.sleep(1)
