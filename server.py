@@ -4,12 +4,11 @@ from obspy.clients.seedlink.easyseedlink import EasySeedLinkClient
 from obspy.signal.trigger import classic_sta_lta, trigger_onset
 from scipy import signal as scipy_signal
 from scipy.ndimage import zoom
-import websockets
-import os
+import websockets, os
 from datetime import datetime, timezone
 
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta", "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "UGMada", "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
@@ -18,8 +17,7 @@ STATIONS = [
 WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
-N_FREQ      = 64
-N_NEW_COLS  = 5
+N_FREQ      = 48    # resolusi frekuensi — lebih kecil = lebih ringan
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
@@ -27,18 +25,15 @@ buffers = {s["sta"]: {
     "magnitude": None,
     "triggered": False,
     "sr"       : 100.0,
+    "prev_cols": 0,   # tracking kolom terakhir dikirim
 } for s in STATIONS}
 
 lock = threading.Lock()
 
-# ── SeedLink Client ───────────────────────────────────────────
 class MultiStationClient(EasySeedLinkClient):
-
     def on_data(self, trace):
-        print(f"Data masuk: {trace.id} | {trace.stats.npts} samples | {trace.stats.sampling_rate} Hz")
         sta = trace.stats.station
         if sta not in buffers:
-            print(f"Stasiun {sta} tidak ada di buffers!")
             return
         with lock:
             buf = buffers[sta]
@@ -69,9 +64,8 @@ class MultiStationClient(EasySeedLinkClient):
                     buf["magnitude"] = None
 
     def on_seedlink_error(self):
-        print("SeedLink error, reconnecting...")
+        print("SeedLink error...")
 
-# ── SeedLink Runner ───────────────────────────────────────────
 def run_seedlink():
     while True:
         try:
@@ -86,64 +80,87 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-# ── Spektrogram ───────────────────────────────────────────────
-def get_latest_spec_cols(data, sr, n_freq=N_FREQ, n_cols=N_NEW_COLS):
+def compute_spec(data, sr, n_freq=N_FREQ):
+    """Hitung spektrogram penuh, return matrix (n_freq, n_time)"""
     arr = np.array(data, dtype=float)
     if len(arr) < int(sr) * 2:
-        return []
+        return None, 0
     try:
-        nperseg  = min(128, len(arr) // 4)
-        noverlap = min(64,  len(arr) // 8)
+        nperseg  = min(256, len(arr) // 4)
+        noverlap = int(nperseg * 0.875)   # 87.5% overlap = lebih smooth
         f, t, Sxx = scipy_signal.spectrogram(
             arr, fs=sr,
             nperseg  = nperseg,
             noverlap = noverlap,
-            nfft     = 256,
+            nfft     = 512,
+            window   = 'hann',
         )
         freq_mask = (f >= 0.5) & (f <= 10.0)
         Sxx_cut   = Sxx[freq_mask, :]
         if Sxx_cut.size == 0:
-            return []
+            return None, 0
+
         Sxx_db     = 10 * np.log10(Sxx_cut + 1e-10)
-        vmin, vmax = Sxx_db.min(), Sxx_db.max()
-        Sxx_norm   = (Sxx_db - vmin) / (vmax - vmin) if vmax > vmin else np.zeros_like(Sxx_db)
+        # Normalisasi per-persentil supaya kontras bagus
+        vmin = np.percentile(Sxx_db, 5)
+        vmax = np.percentile(Sxx_db, 99)
+        Sxx_norm = np.clip((Sxx_db - vmin) / (vmax - vmin + 1e-10), 0, 1)
+
         if Sxx_norm.shape[0] != n_freq:
-            Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1))
-        last = Sxx_norm[:, -n_cols:]
-        return np.round(last.T, 3).tolist()
+            scale    = n_freq / Sxx_norm.shape[0]
+            Sxx_norm = zoom(Sxx_norm, (scale, 1), order=1)
+
+        return Sxx_norm, len(t)
     except Exception as e:
         print(f"Spektrogram error: {e}")
-        return []
+        return None, 0
 
-# ── WebSocket Handler ─────────────────────────────────────────
 async def handler(websocket):
     print(f"Client terhubung: {websocket.remote_address}")
+    # Reset prev_cols saat client baru konek
+    with lock:
+        for sta in buffers:
+            buffers[sta]["prev_cols"] = 0
     try:
         while True:
-            now_utc = datetime.now(timezone.utc).timestamp()
+            now_ts = datetime.now(timezone.utc).timestamp()
             with lock:
-                payload = [{
-                    "station"  : cfg["sta"],
-                    "label"    : cfg["label"],
-                    "spec_new" : get_latest_spec_cols(
-                        list(buffers[cfg["sta"]]["data"]),
-                        buffers[cfg["sta"]]["sr"],
-                    ),
-                    "spec_time": now_utc,
-                    "status"   : buffers[cfg["sta"]]["status"],
-                    "triggered": buffers[cfg["sta"]]["triggered"],
-                    "magnitude": buffers[cfg["sta"]]["magnitude"],
-                    "sr"       : buffers[cfg["sta"]]["sr"],
-                } for cfg in STATIONS]
+                payload = []
+                for cfg in STATIONS:
+                    buf  = buffers[cfg["sta"]]
+                    data = list(buf["data"])
+                    sr   = buf["sr"]
+
+                    spec, n_cols = compute_spec(data, sr)
+
+                    # Hanya kirim kolom baru
+                    prev = buf["prev_cols"]
+                    if spec is not None and n_cols > prev:
+                        new_data = spec[:, prev:].T  # shape: (n_new, n_freq)
+                        buf["prev_cols"] = n_cols
+                        cols_payload = np.round(new_data, 3).tolist()
+                    else:
+                        cols_payload = []
+
+                    payload.append({
+                        "station"  : cfg["sta"],
+                        "label"    : cfg["label"],
+                        "spec_cols": cols_payload,   # list of columns, each col = n_freq values
+                        "timestamp": now_ts,
+                        "status"   : buf["status"],
+                        "triggered": buf["triggered"],
+                        "magnitude": buf["magnitude"],
+                        "sr"       : sr,
+                    })
+
             await websocket.send(json.dumps(payload))
             await asyncio.sleep(1)
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnect")
 
-# ── Main ──────────────────────────────────────────────────────
 async def main():
-    print("Menunggu SeedLink data (10 detik)...")
-    await asyncio.sleep(10)
+    print("Menunggu SeedLink data (15 detik)...")
+    await asyncio.sleep(15)
     port = int(os.environ.get("PORT", 8765))
     async with websockets.serve(handler, "0.0.0.0", port):
         print(f"WebSocket server jalan di port {port}")
