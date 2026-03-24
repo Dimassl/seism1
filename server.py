@@ -9,17 +9,17 @@ import os
 from datetime import datetime, timezone
 
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",        "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",        "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",     "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta", "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
 ]
 
 WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
 N_FREQ      = 64
-N_NEW_COLS  = 5   # kolom baru per push (tiap 1 detik)
+N_NEW_COLS  = 5
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
@@ -33,14 +33,14 @@ lock = threading.Lock()
 
 # ── SeedLink Client ───────────────────────────────────────────
 class MultiStationClient(EasySeedLinkClient):
+
     def on_data(self, trace):
-    print(f"Data masuk: {trace.id} | {trace.stats.npts} samples | {trace.stats.sampling_rate} Hz")
-    sta = trace.stats.station
-    if sta not in buffers:
-        print(f"Stasiun {sta} tidak ada di buffers!")
-        return
-    with lock:
-        
+        print(f"Data masuk: {trace.id} | {trace.stats.npts} samples | {trace.stats.sampling_rate} Hz")
+        sta = trace.stats.station
+        if sta not in buffers:
+            print(f"Stasiun {sta} tidak ada di buffers!")
+            return
+        with lock:
             buf = buffers[sta]
             sr  = float(trace.stats.sampling_rate)
             buf["sr"] = sr
@@ -86,16 +86,14 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-# ── Spektrogram — kirim kolom baru saja ──────────────────────
+# ── Spektrogram ───────────────────────────────────────────────
 def get_latest_spec_cols(data, sr, n_freq=N_FREQ, n_cols=N_NEW_COLS):
-    """Hitung spektrogram, kembalikan hanya n_cols kolom terbaru"""
     arr = np.array(data, dtype=float)
     if len(arr) < int(sr) * 2:
         return []
     try:
         nperseg  = min(128, len(arr) // 4)
         noverlap = min(64,  len(arr) // 8)
-
         f, t, Sxx = scipy_signal.spectrogram(
             arr, fs=sr,
             nperseg  = nperseg,
@@ -106,17 +104,13 @@ def get_latest_spec_cols(data, sr, n_freq=N_FREQ, n_cols=N_NEW_COLS):
         Sxx_cut   = Sxx[freq_mask, :]
         if Sxx_cut.size == 0:
             return []
-
         Sxx_db     = 10 * np.log10(Sxx_cut + 1e-10)
         vmin, vmax = Sxx_db.min(), Sxx_db.max()
         Sxx_norm   = (Sxx_db - vmin) / (vmax - vmin) if vmax > vmin else np.zeros_like(Sxx_db)
-
         if Sxx_norm.shape[0] != n_freq:
             Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1))
-
-        # Ambil n_cols kolom terakhir, transpose jadi list of columns
-        last = Sxx_norm[:, -n_cols:]            # shape: (n_freq, n_cols)
-        return np.round(last.T, 3).tolist()     # shape: (n_cols, n_freq)
+        last = Sxx_norm[:, -n_cols:]
+        return np.round(last.T, 3).tolist()
     except Exception as e:
         print(f"Spektrogram error: {e}")
         return []
@@ -131,12 +125,11 @@ async def handler(websocket):
                 payload = [{
                     "station"  : cfg["sta"],
                     "label"    : cfg["label"],
-                    "data"     : list(buffers[cfg["sta"]]["data"])[-500:],
                     "spec_new" : get_latest_spec_cols(
                         list(buffers[cfg["sta"]]["data"]),
                         buffers[cfg["sta"]]["sr"],
                     ),
-                    "spec_time": now_utc,   # timestamp UTC kolom terbaru
+                    "spec_time": now_utc,
                     "status"   : buffers[cfg["sta"]]["status"],
                     "triggered": buffers[cfg["sta"]]["triggered"],
                     "magnitude": buffers[cfg["sta"]]["magnitude"],
