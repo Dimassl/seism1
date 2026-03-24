@@ -34,10 +34,13 @@ lock = threading.Lock()
 # ── SeedLink Client ───────────────────────────────────────────
 class MultiStationClient(EasySeedLinkClient):
     def on_data(self, trace):
-        sta = trace.stats.station
-        if sta not in buffers:
-            return
-        with lock:
+    print(f"Data masuk: {trace.id} | {trace.stats.npts} samples | {trace.stats.sampling_rate} Hz")
+    sta = trace.stats.station
+    if sta not in buffers:
+        print(f"Stasiun {sta} tidak ada di buffers!")
+        return
+    with lock:
+        
             buf = buffers[sta]
             sr  = float(trace.stats.sampling_rate)
             buf["sr"] = sr
