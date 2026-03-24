@@ -17,7 +17,7 @@ STATIONS = [
 WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
-N_FREQ      = 1024    # resolusi frekuensi — lebih kecil = lebih ringan
+N_FREQ      = 24    # resolusi frekuensi — lebih kecil = lebih ringan
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
