@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "UGMada", "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
 ]
@@ -17,7 +17,8 @@ STATIONS = [
 WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
-N_FREQ      = 48    # resolusi frekuensi — lebih kecil = lebih ringan
+N_FREQ      = 48
+PUSH_SEC    = 3     # hitung spektrogram dari 3 detik terakhir tiap push
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
@@ -25,7 +26,6 @@ buffers = {s["sta"]: {
     "magnitude": None,
     "triggered": False,
     "sr"       : 100.0,
-    "prev_cols": 0,   # tracking kolom terakhir dikirim
 } for s in STATIONS}
 
 lock = threading.Lock()
@@ -80,90 +80,61 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-def compute_spec(data, sr, n_freq=N_FREQ):
-    """Hitung spektrogram penuh, return matrix (n_freq, n_time)"""
+def compute_new_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
+    """
+    Ambil push_sec detik terakhir data, hitung spektrogram,
+    return semua kolomnya — ini yang 'baru' sejak push terakhir
+    """
     arr = np.array(data, dtype=float)
-    if len(arr) < int(sr) * 2:
-        return None, 0
+    sr_int = int(sr)
+
+    # Butuh minimal 2x push_sec supaya ada konteks untuk normalisasi
+    n_context = int(sr * WINDOW_SEC)
+    n_new     = int(sr * push_sec)
+
+    if len(arr) < n_new * 2:
+        return []
+
     try:
-        nperseg  = min(256, len(arr) // 4)
-        noverlap = int(nperseg * 0.875)   # 87.5% overlap = lebih smooth
+        # Pakai semua data untuk normalisasi warna yang konsisten
+        nperseg  = min(256, sr_int * 2)
+        noverlap = int(nperseg * 0.875)
+
         f, t, Sxx = scipy_signal.spectrogram(
-            arr, fs=sr,
+            arr[-n_context:] if len(arr) > n_context else arr,
+            fs       = sr,
             nperseg  = nperseg,
             noverlap = noverlap,
             nfft     = 512,
             window   = 'hann',
         )
+
         freq_mask = (f >= 0.5) & (f <= 10.0)
         Sxx_cut   = Sxx[freq_mask, :]
         if Sxx_cut.size == 0:
-            return None, 0
+            return []
 
-        Sxx_db     = 10 * np.log10(Sxx_cut + 1e-10)
-        # Normalisasi per-persentil supaya kontras bagus
+        Sxx_db = 10 * np.log10(Sxx_cut + 1e-10)
+
+        # Normalisasi pakai persentil dari seluruh window — warna konsisten
         vmin = np.percentile(Sxx_db, 5)
-        vmax = np.percentile(Sxx_db, 99)
+        vmax = np.percentile(Sxx_db, 98)
         Sxx_norm = np.clip((Sxx_db - vmin) / (vmax - vmin + 1e-10), 0, 1)
 
         if Sxx_norm.shape[0] != n_freq:
-            scale    = n_freq / Sxx_norm.shape[0]
-            Sxx_norm = zoom(Sxx_norm, (scale, 1), order=1)
+            Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1), order=1)
 
-        return Sxx_norm, len(t)
+        # Hitung berapa kolom yang sesuai push_sec detik
+        # Setiap kolom = (nperseg - noverlap) / sr detik
+        step_sec    = (nperseg - noverlap) / sr
+        n_new_cols  = max(1, int(push_sec / step_sec))
+
+        # Ambil hanya n_new_cols kolom terakhir
+        new_cols = Sxx_norm[:, -n_new_cols:]   # (n_freq, n_new_cols)
+
+        # Transpose → list of columns, tiap kolom = n_freq nilai
+        return np.round(new_cols.T, 3).tolist()  # (n_new_cols, n_freq)
+
     except Exception as e:
         print(f"Spektrogram error: {e}")
-        return None, 0
-
-async def handler(websocket):
-    print(f"Client terhubung: {websocket.remote_address}")
-    # Reset prev_cols saat client baru konek
-    with lock:
-        for sta in buffers:
-            buffers[sta]["prev_cols"] = 0
-    try:
-        while True:
-            now_ts = datetime.now(timezone.utc).timestamp()
-            with lock:
-                payload = []
-                for cfg in STATIONS:
-                    buf  = buffers[cfg["sta"]]
-                    data = list(buf["data"])
-                    sr   = buf["sr"]
-
-                    spec, n_cols = compute_spec(data, sr)
-
-                    # Hanya kirim kolom baru
-                    prev = buf["prev_cols"]
-                    if spec is not None and n_cols > prev:
-                        new_data = spec[:, prev:].T  # shape: (n_new, n_freq)
-                        buf["prev_cols"] = n_cols
-                        cols_payload = np.round(new_data, 3).tolist()
-                    else:
-                        cols_payload = []
-
-                    payload.append({
-                        "station"  : cfg["sta"],
-                        "label"    : cfg["label"],
-                        "spec_cols": cols_payload,   # list of columns, each col = n_freq values
-                        "timestamp": now_ts,
-                        "status"   : buf["status"],
-                        "triggered": buf["triggered"],
-                        "magnitude": buf["magnitude"],
-                        "sr"       : sr,
-                    })
-
-            await websocket.send(json.dumps(payload))
-            await asyncio.sleep(1)
-    except websockets.exceptions.ConnectionClosed:
-        print("Client disconnect")
-
-async def main():
-    print("Menunggu SeedLink data (15 detik)...")
-    await asyncio.sleep(15)
-    port = int(os.environ.get("PORT", 8765))
-    async with websockets.serve(handler, "0.0.0.0", port):
-        print(f"WebSocket server jalan di port {port}")
-        await asyncio.Future()
-
-asyncio.run(main())
+        return [
