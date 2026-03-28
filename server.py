@@ -137,4 +137,45 @@ def compute_new_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
 
     except Exception as e:
         print(f"Spektrogram error: {e}")
-        return [
+        return []
+
+async def handler(websocket):
+    print(f"Client terhubung: {websocket.remote_address}")
+    try:
+        while True:
+            now_ts = datetime.now(timezone.utc).timestamp()
+            with lock:
+                payload = []
+                for cfg in STATIONS:
+                    buf  = buffers[cfg["sta"]]
+                    data = list(buf["data"])
+                    sr   = buf["sr"]
+
+                    cols = compute_new_cols(data, sr)
+
+                    payload.append({
+                        "station"  : cfg["sta"],
+                        "label"    : cfg["label"],
+                        "spec_cols": cols,
+                        "timestamp": now_ts,
+                        "status"   : buf["status"],
+                        "triggered": buf["triggered"],
+                        "magnitude": buf["magnitude"],
+                        "sr"       : sr,
+                    })
+
+            await websocket.send(json.dumps(payload))
+            await asyncio.sleep(PUSH_SEC)   # push tiap PUSH_SEC detik
+
+    except websockets.exceptions.ConnectionClosed:
+        print("Client disconnect")
+
+async def main():
+    print("Menunggu SeedLink data (15 detik)...")
+    await asyncio.sleep(15)
+    port = int(os.environ.get("PORT", 8765))
+    async with websockets.serve(handler, "0.0.0.0", port):
+        print(f"WebSocket server jalan di port {port}")
+        await asyncio.Future()
+
+asyncio.run(main())
