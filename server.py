@@ -18,7 +18,7 @@ WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
 N_FREQ      = 48
-PUSH_SEC    = 3     # hitung spektrogram dari 3 detik terakhir tiap push
+PUSH_SEC    = 1     # hitung spektrogram dari 3 detik terakhir tiap push
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
