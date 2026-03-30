@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "UGMada", "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
 ]
@@ -18,7 +18,7 @@ WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
 N_FREQ      = 48
-PUSH_SEC    = 1     # hitung spektrogram dari 3 detik terakhir tiap push
+PUSH_SEC    = 3   # push tiap 3 detik
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
@@ -39,11 +39,9 @@ class MultiStationClient(EasySeedLinkClient):
             buf = buffers[sta]
             sr  = float(trace.stats.sampling_rate)
             buf["sr"] = sr
-
             new_maxlen = int(WINDOW_SEC * sr)
             if buf["data"].maxlen != new_maxlen:
                 buf["data"] = collections.deque(buf["data"], maxlen=new_maxlen)
-
             for s in trace.data:
                 buf["data"].append(float(s))
             buf["status"] = "live"
@@ -80,32 +78,29 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-def compute_new_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
-    """
-    Ambil push_sec detik terakhir data, hitung spektrogram,
-    return semua kolomnya — ini yang 'baru' sejak push terakhir
-    """
-    arr = np.array(data, dtype=float)
+def compute_spec_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
+    arr    = np.array(data, dtype=float)
     sr_int = int(sr)
 
-    # Butuh minimal 2x push_sec supaya ada konteks untuk normalisasi
-    n_context = int(sr * WINDOW_SEC)
-    n_new     = int(sr * push_sec)
-
-    if len(arr) < n_new * 2:
+    if len(arr) < sr_int * 4:
         return []
 
     try:
-        # Pakai semua data untuk normalisasi warna yang konsisten
-        nperseg  = min(256, sr_int * 2)
-        noverlap = int(nperseg * 0.875)
+        # nperseg = 2 detik data → resolusi frekuensi bagus
+        nperseg  = min(int(sr * 2), len(arr) // 4)
+        nperseg  = max(nperseg, 32)
+
+        # Overlap 93.75% → hop = nperseg/16
+        # Jumlah kolom per detik = sr / hop ≈ 8 kolom/detik
+        hop      = max(1, nperseg // 16)
+        noverlap = nperseg - hop
 
         f, t, Sxx = scipy_signal.spectrogram(
-            arr[-n_context:] if len(arr) > n_context else arr,
+            arr,
             fs       = sr,
             nperseg  = nperseg,
             noverlap = noverlap,
-            nfft     = 512,
+            nfft     = nperseg * 2,
             window   = 'hann',
         )
 
@@ -116,24 +111,26 @@ def compute_new_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
 
         Sxx_db = 10 * np.log10(Sxx_cut + 1e-10)
 
-        # Normalisasi pakai persentil dari seluruh window — warna konsisten
+        # Normalisasi pakai persentil seluruh window — warna konsisten
         vmin = np.percentile(Sxx_db, 5)
         vmax = np.percentile(Sxx_db, 98)
         Sxx_norm = np.clip((Sxx_db - vmin) / (vmax - vmin + 1e-10), 0, 1)
 
+        # Resize ke n_freq baris
         if Sxx_norm.shape[0] != n_freq:
             Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1), order=1)
 
-        # Hitung berapa kolom yang sesuai push_sec detik
-        # Setiap kolom = (nperseg - noverlap) / sr detik
-        step_sec    = (nperseg - noverlap) / sr
-        n_new_cols  = max(1, int(push_sec / step_sec))
+        # Hitung berapa kolom = push_sec detik
+        col_per_sec = sr / hop
+        n_new_cols  = max(1, int(push_sec * col_per_sec))
 
-        # Ambil hanya n_new_cols kolom terakhir
-        new_cols = Sxx_norm[:, -n_new_cols:]   # (n_freq, n_new_cols)
+        # Ambil kolom terakhir = data baru sejak push sebelumnya
+        new_cols = Sxx_norm[:, -n_new_cols:]  # (n_freq, n_new_cols)
 
-        # Transpose → list of columns, tiap kolom = n_freq nilai
-        return np.round(new_cols.T, 3).tolist()  # (n_new_cols, n_freq)
+        print(f"  cols: {new_cols.shape[1]}, col/sec: {col_per_sec:.1f}, hop: {hop}")
+
+        # Kirim sebagai list of columns: (n_new_cols, n_freq)
+        return np.round(new_cols.T, 3).tolist()
 
     except Exception as e:
         print(f"Spektrogram error: {e}")
@@ -150,9 +147,7 @@ async def handler(websocket):
                     buf  = buffers[cfg["sta"]]
                     data = list(buf["data"])
                     sr   = buf["sr"]
-
-                    cols = compute_new_cols(data, sr)
-
+                    cols = compute_spec_cols(data, sr)
                     payload.append({
                         "station"  : cfg["sta"],
                         "label"    : cfg["label"],
@@ -165,7 +160,7 @@ async def handler(websocket):
                     })
 
             await websocket.send(json.dumps(payload))
-            await asyncio.sleep(PUSH_SEC)   # push tiap PUSH_SEC detik
+            await asyncio.sleep(PUSH_SEC)
 
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnect")
