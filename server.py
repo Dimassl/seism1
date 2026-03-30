@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 
 # ================= CONFIG =================
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA"},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi"},
-    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut"},
-    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang"},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta", "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
 ]
 
 WINDOW_SEC = 120
