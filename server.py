@@ -7,9 +7,7 @@ from scipy.ndimage import zoom
 import websockets, os
 from datetime import datetime, timezone
 
-# ─────────────────────────────────────────────
-# CONFIG
-# ─────────────────────────────────────────────
+# ================= CONFIG =================
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA"},
     {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi"},
@@ -18,7 +16,7 @@ STATIONS = [
 ]
 
 WINDOW_SEC = 120
-PUSH_SEC   = 1   # 🔥 realtime lebih cepat
+PUSH_SEC   = 1   # 🔥 penting untuk realtime UI
 
 N_FREQ = 64
 N_TIME = 200
@@ -26,9 +24,7 @@ N_TIME = 200
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
 
-# ─────────────────────────────────────────────
-# BUFFER
-# ─────────────────────────────────────────────
+# ================= BUFFER =================
 buffers = {
     s["sta"]: {
         "data": collections.deque(maxlen=WINDOW_SEC * 100),
@@ -41,9 +37,7 @@ buffers = {
 
 lock = threading.Lock()
 
-# ─────────────────────────────────────────────
-# SEEDLINK CLIENT
-# ─────────────────────────────────────────────
+# ================= SEEDLINK =================
 class MultiStationClient(EasySeedLinkClient):
 
     def on_data(self, trace):
@@ -57,17 +51,14 @@ class MultiStationClient(EasySeedLinkClient):
             sr = float(trace.stats.sampling_rate)
             buf["sr"] = sr
 
-            # update buffer size sesuai sampling rate
             new_maxlen = int(WINDOW_SEC * sr)
             if buf["data"].maxlen != new_maxlen:
                 buf["data"] = collections.deque(buf["data"], maxlen=new_maxlen)
 
-            for s in trace.data:
-                buf["data"].append(float(s))
-
+            buf["data"].extend(trace.data.tolist())
             buf["status"] = "live"
 
-            # ── DETEKSI GEMPA ──
+            # ===== DETEKSI GEMPA =====
             arr = np.array(buf["data"])
             if len(arr) > sr * 20:
                 cft = classic_sta_lta(arr, int(1 * sr), int(10 * sr))
@@ -83,13 +74,12 @@ class MultiStationClient(EasySeedLinkClient):
                 else:
                     buf["magnitude"] = None
 
-# ─────────────────────────────────────────────
-# RUN SEEDLINK
-# ─────────────────────────────────────────────
+# ================= RUN SEEDLINK =================
 def run_seedlink():
     while True:
         try:
             client = MultiStationClient(f"{GEOFON_HOST}:{GEOFON_PORT}")
+
             for cfg in STATIONS:
                 client.select_stream(cfg["net"], cfg["sta"], cfg["cha"])
 
@@ -97,14 +87,12 @@ def run_seedlink():
             client.run()
 
         except Exception as e:
-            print("Reconnect in 10s:", e)
+            print("Reconnect:", e)
             time.sleep(10)
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-# ─────────────────────────────────────────────
-# SPECTROGRAM
-# ─────────────────────────────────────────────
+# ================= SPECTROGRAM =================
 def compute_spec(data, sr):
     arr = np.array(data)
     if len(arr) < sr * 4:
@@ -122,37 +110,31 @@ def compute_spec(data, sr):
             window='hann'
         )
 
-        # filter freq
+        # FILTER FREKUENSI
         mask = (f >= 0.5) & (f <= 10)
         Sxx = Sxx[mask]
 
         if Sxx.size == 0:
             return []
 
-        # dB scale
+        # DB SCALE
         Sxx = 10 * np.log10(Sxx + 1e-10)
 
-        # normalize
-        vmin = np.median(Sxx)
-        vmax = vmin + 50
+        # NORMALISASI SWARM STYLE
+        noise = np.median(Sxx)
+        Sxx = np.clip((Sxx - noise) / 50.0, 0, 1)
 
-        Sxx = np.clip((Sxx - vmin) / (vmax - vmin), 0, 1)
-
-        # resize → (freq x time)
+        # RESIZE KE FIX SIZE
         Sxx = zoom(Sxx, (N_FREQ / Sxx.shape[0], N_TIME / Sxx.shape[1]), order=1)
 
-        # 🔥 IMPORTANT: transpose biar (freq x time)
-        Sxx = Sxx.astype(np.float32)
-
+        # OUTPUT: freq × time
         return (Sxx * 255).astype(np.uint8).tolist()
 
     except Exception as e:
         print("Spec error:", e)
         return []
 
-# ─────────────────────────────────────────────
-# WEBSOCKET
-# ─────────────────────────────────────────────
+# ================= WEBSOCKET =================
 async def handler(websocket):
     print("Client connected")
 
@@ -171,8 +153,9 @@ async def handler(websocket):
                     payload.append({
                         "station": cfg["sta"],
                         "label": cfg["label"],
-                        "spec": spec,   # ✅ sudah (freq x time)
-                        "timestamp": now_ts,
+                        "spec": spec,              # freq × time
+                        "timestamp": now_ts,       # 🔥 penting untuk sync UI
+                        "window_sec": WINDOW_SEC,  # 🔥 tambahan untuk Android
                         "triggered": buf["triggered"],
                         "magnitude": buf["magnitude"],
                         "status": buf["status"],
@@ -185,17 +168,15 @@ async def handler(websocket):
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected")
 
-# ─────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────
+# ================= MAIN =================
 async def main():
-    print("Waiting data...")
+    print("Waiting for data...")
     await asyncio.sleep(10)
 
     port = int(os.environ.get("PORT", 8765))
 
     async with websockets.serve(handler, "0.0.0.0", port):
-        print(f"WebSocket running on {port}")
+        print(f"WebSocket running on port {port}")
         await asyncio.Future()
 
 asyncio.run(main())
