@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 
 # ================= CONFIG =================
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "Yogyakarta", "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
 ]
