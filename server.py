@@ -18,7 +18,7 @@ STATIONS = [
 WINDOW_SEC = 120
 PUSH_SEC   = 1   # 🔥 penting untuk realtime UI
 
-N_FREQ = 64
+N_FREQ = 48
 N_TIME = 200
 
 GEOFON_HOST = "geofon.gfz-potsdam.de"
