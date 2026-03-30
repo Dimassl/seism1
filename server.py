@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "UGMada", "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Jajag",      "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
 ]
@@ -17,8 +17,9 @@ STATIONS = [
 WINDOW_SEC  = 120
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
-N_FREQ      = 48
-PUSH_SEC    = 3   # push tiap 3 detik
+N_FREQ      = 64    # baris frekuensi
+N_TIME      = 200   # kolom waktu (fixed, tidak berubah)
+PUSH_SEC    = 2     # push tiap 2 detik
 
 buffers = {s["sta"]: {
     "data"     : collections.deque(maxlen=WINDOW_SEC * 100),
@@ -78,7 +79,11 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-def compute_spec_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
+def compute_full_spec(data, sr, n_freq=N_FREQ, n_time=N_TIME):
+    """
+    Hitung spektrogram seluruh window, resize ke (n_freq, n_time) fixed.
+    Return matrix uint8 (0-255) shape (n_freq, n_time) — baris = frekuensi, kolom = waktu.
+    """
     arr    = np.array(data, dtype=float)
     sr_int = int(sr)
 
@@ -86,14 +91,12 @@ def compute_spec_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
         return []
 
     try:
-        # nperseg = 2 detik data → resolusi frekuensi bagus
-        nperseg  = min(int(sr * 2), len(arr) // 4)
-        nperseg  = max(nperseg, 32)
+        # nperseg 4 detik → resolusi frekuensi rendah bagus (0.25 Hz)
+        nperseg  = min(int(sr * 4), len(arr) // 4)
+        nperseg  = max(nperseg, 64)
 
-        # Overlap 93.75% → hop = nperseg/16
-        # Jumlah kolom per detik = sr / hop ≈ 8 kolom/detik
-        hop      = max(1, nperseg // 16)
-        noverlap = nperseg - hop
+        # Overlap 75% → balance resolusi waktu vs CPU
+        noverlap = int(nperseg * 0.75)
 
         f, t, Sxx = scipy_signal.spectrogram(
             arr,
@@ -111,26 +114,27 @@ def compute_spec_cols(data, sr, push_sec=PUSH_SEC, n_freq=N_FREQ):
 
         Sxx_db = 10 * np.log10(Sxx_cut + 1e-10)
 
-        # Normalisasi pakai persentil seluruh window — warna konsisten
-        vmin = np.percentile(Sxx_db, 5)
-        vmax = np.percentile(Sxx_db, 98)
-        Sxx_norm = np.clip((Sxx_db - vmin) / (vmax - vmin + 1e-10), 0, 1)
+        # Normalisasi SWARM-style:
+        # noise floor = median (sebagian besar waktu = noise)
+        # dynamic range 50 dB di atas noise floor
+        noise_floor   = np.median(Sxx_db)
+        dynamic_range = 50.0
+        vmin = noise_floor
+        vmax = noise_floor + dynamic_range
 
-        # Resize ke n_freq baris
-        if Sxx_norm.shape[0] != n_freq:
-            Sxx_norm = zoom(Sxx_norm, (n_freq / Sxx_norm.shape[0], 1), order=1)
+        Sxx_norm = np.clip((Sxx_db - vmin) / (vmax - vmin), 0, 1)
 
-        # Hitung berapa kolom = push_sec detik
-        col_per_sec = sr / hop
-        n_new_cols  = max(1, int(push_sec * col_per_sec))
+        # Resize ke (n_freq, n_time) fixed — bilinear interpolation
+        curr_f, curr_t = Sxx_norm.shape
+        if curr_f != n_freq or curr_t != n_time:
+            Sxx_norm = zoom(
+                Sxx_norm,
+                (n_freq / curr_f, n_time / curr_t),
+                order=1   # bilinear
+            )
 
-        # Ambil kolom terakhir = data baru sejak push sebelumnya
-        new_cols = Sxx_norm[:, -n_new_cols:]  # (n_freq, n_new_cols)
-
-        print(f"  cols: {new_cols.shape[1]}, col/sec: {col_per_sec:.1f}, hop: {hop}")
-
-        # Kirim sebagai list of columns: (n_new_cols, n_freq)
-        return np.round(new_cols.T, 3).tolist()
+        # Quantize ke uint8 → payload lebih kecil
+        return (Sxx_norm * 255).astype(np.uint8).tolist()
 
     except Exception as e:
         print(f"Spektrogram error: {e}")
@@ -147,11 +151,11 @@ async def handler(websocket):
                     buf  = buffers[cfg["sta"]]
                     data = list(buf["data"])
                     sr   = buf["sr"]
-                    cols = compute_spec_cols(data, sr)
+                    spec = compute_full_spec(data, sr)
                     payload.append({
                         "station"  : cfg["sta"],
                         "label"    : cfg["label"],
-                        "spec_cols": cols,
+                        "spec"     : spec,       # matrix (n_freq × n_time) uint8
                         "timestamp": now_ts,
                         "status"   : buf["status"],
                         "triggered": buf["triggered"],
