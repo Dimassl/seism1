@@ -9,27 +9,27 @@ from datetime import datetime, timezone
 
 # ================= CONFIG =================
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SAUI", "cha": "BHZ", "label": "Tanibar",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "Fak Fak",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SANI", "cha": "BHZ", "label": "MAluku",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "LhokseumaveSulawesi",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "LHMI", "cha": "BHZ", "label": "Aceh",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "GSI", "cha": "BHZ", "label": "Nias",   "thr_on": 5.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "MNAI", "cha": "BHZ", "label": "Bengkulu",   "thr_on": 5.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SAUI", "cha": "SHZ", "label": "Tanibar",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SANI", "cha": "SHZ", "label": "Maluku",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "LhokseumaveSulawesi",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "LHMI", "cha": "BHZ", "label": "Aceh",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "GSI", "cha": "BHZ", "label": "Nias",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "MNAI", "cha": "BHZ", "label": "Bengkulu",   "thr_on": 7.0, "thr_off": 0.8},
 ]
 
 WINDOW_SEC = 120
-PUSH_SEC   = 1   # 🔥 penting untuk realtime UI
+PUSH_SEC   = 1   
 
 N_FREQ = 48
 N_TIME = 200
@@ -166,9 +166,9 @@ async def handler(websocket):
                     payload.append({
                         "station": cfg["sta"],
                         "label": cfg["label"],
-                        "spec": spec,              # freq × time
-                        "timestamp": now_ts,       # 🔥 penting untuk sync UI
-                        "window_sec": WINDOW_SEC,  # 🔥 tambahan untuk Android
+                        "spec": spec,              
+                        "timestamp": now_ts,       
+                        "window_sec": WINDOW_SEC,  
                         "triggered": buf["triggered"],
                         "magnitude": buf["magnitude"],
                         "status": buf["status"],
