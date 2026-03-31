@@ -9,30 +9,30 @@ from datetime import datetime, timezone
 
 # ================= CONFIG =================
 STATIONS = [
-    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SAUI", "cha": "SHZ", "label": "Tanibar",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SANI", "cha": "SHZ", "label": "Maluku",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "LhokseumaveSulawesi",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "LHMI", "cha": "BHZ", "label": "Aceh",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "GSI", "cha": "BHZ", "label": "Nias",   "thr_on": 7.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "MNAI", "cha": "BHZ", "label": "Bengkulu",   "thr_on": 7.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SAUI", "cha": "SHZ", "label": "Tanibar",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SANI", "cha": "LHZ", "label": "Maluku",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "Luwu Sulawesi",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "LHMI", "cha": "BHZ", "label": "Aceh",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "GSI", "cha": "BHZ", "label": "Nias",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "MNAI", "cha": "BHZ", "label": "Bengkulu",   "thr_on": 10.0, "thr_off": 0.8},
 ]
 
 WINDOW_SEC = 120
 PUSH_SEC   = 1   
 
 N_FREQ = 48
-N_TIME = 200
+N_TIME = 150
 
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
