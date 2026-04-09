@@ -7,25 +7,25 @@ from scipy.ndimage import zoom
 import websockets, os
 from datetime import datetime, timezone
 
-# ================= CONFIG =================
+# 
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi",      "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut",      "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SAUI", "cha": "SHZ", "label": "Tanibar",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SANI", "cha": "LHZ", "label": "Maluku",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "Luwu Sulawesi",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "LHMI", "cha": "BHZ", "label": "Aceh",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "GSI", "cha": "BHZ", "label": "Nias",   "thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "MNAI", "cha": "BHZ", "label": "Bengkulu",   "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BBJI", "cha": "BHZ", "label": "Garut", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SMRI", "cha": "BHZ", "label": "Semarang", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere","thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor","thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SAUI", "cha": "SHZ", "label": "Tanibar","thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira","thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak","thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "SANI", "cha": "LHZ", "label": "Maluku", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "Luwu Sulawesi", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "LHMI", "cha": "BHZ", "label": "Aceh","thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "GSI", "cha": "BHZ", "label": "Nias", "thr_on": 10.0, "thr_off": 0.8},
+    {"net": "GE", "sta": "MNAI", "cha": "BHZ", "label": "Bengkulu",  "thr_on": 10.0, "thr_off": 0.8},
 ]
 
 WINDOW_SEC = 120
@@ -37,7 +37,7 @@ N_TIME = 150
 GEOFON_HOST = "geofon.gfz-potsdam.de"
 GEOFON_PORT = 18000
 
-# ================= BUFFER =================
+# 
 buffers = {
     s["sta"]: {
         "data": collections.deque(maxlen=WINDOW_SEC * 100),
@@ -50,7 +50,7 @@ buffers = {
 
 lock = threading.Lock()
 
-# ================= SEEDLINK =================
+# 
 class MultiStationClient(EasySeedLinkClient):
 
     def on_data(self, trace):
@@ -71,7 +71,7 @@ class MultiStationClient(EasySeedLinkClient):
             buf["data"].extend(trace.data.tolist())
             buf["status"] = "live"
 
-            # ===== DETEKSI GEMPA =====
+           
             arr = np.array(buf["data"])
             if len(arr) > sr * 20:
                 cft = classic_sta_lta(arr, int(1 * sr), int(10 * sr))
@@ -87,7 +87,7 @@ class MultiStationClient(EasySeedLinkClient):
                 else:
                     buf["magnitude"] = None
 
-# ================= RUN SEEDLINK =================
+# 
 def run_seedlink():
     while True:
         try:
@@ -105,7 +105,7 @@ def run_seedlink():
 
 threading.Thread(target=run_seedlink, daemon=True).start()
 
-# ================= SPECTROGRAM =================
+#
 def compute_spec(data, sr):
     arr = np.array(data)
     if len(arr) < sr * 4:
@@ -123,31 +123,31 @@ def compute_spec(data, sr):
             window='hann'
         )
 
-        # FILTER FREKUENSI
+        # 
         mask = (f >= 0.5) & (f <= 10)
         Sxx = Sxx[mask]
 
         if Sxx.size == 0:
             return []
 
-        # DB SCALE
+        #
         Sxx = 10 * np.log10(Sxx + 1e-10)
 
-        # NORMALISASI SWARM STYLE
+        #
         noise = np.median(Sxx)
         Sxx = np.clip((Sxx - noise) / 50.0, 0, 1)
 
-        # RESIZE KE FIX SIZE
+        #
         Sxx = zoom(Sxx, (N_FREQ / Sxx.shape[0], N_TIME / Sxx.shape[1]), order=1)
 
-        # OUTPUT: freq × time
+        #
         return (Sxx * 255).astype(np.uint8).tolist()
 
     except Exception as e:
         print("Spec error:", e)
         return []
 
-# ================= WEBSOCKET =================
+#
 async def handler(websocket):
     print("Client connected")
 
@@ -181,7 +181,7 @@ async def handler(websocket):
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected")
 
-# ================= MAIN =================
+#
 async def main():
     print("Waiting for data...")
     await asyncio.sleep(10)
