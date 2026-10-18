@@ -18,6 +18,7 @@ jobs:
           source venv/bin/activate
           pip install -r requirements.txt
           deactivate
+          venv/bin/python -m py_compile server.py main.py
           sudo /usr/bin/systemctl restart seism-2 seism-ews
           sleep 8
           /usr/bin/systemctl is-active seism-2
