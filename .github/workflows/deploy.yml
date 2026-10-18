@@ -19,5 +19,6 @@ jobs:
           pip install -r requirements.txt
           deactivate
           sudo /usr/bin/systemctl restart seism-2 seism-ews
+          sleep 8
           /usr/bin/systemctl is-active seism-2
           /usr/bin/systemctl is-active seism-ews
