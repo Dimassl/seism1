@@ -188,7 +188,7 @@ async def main():
 
     port = int(os.environ.get("PORT", 8765))
 
-    async with websockets.serve(handler, "127.0.0.1", port):
+    async with websockets.serve(handler, "0.0.0.0", port):
         print(f"WebSocket running on port {port}")
         await asyncio.Future()
 
