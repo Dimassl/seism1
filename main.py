@@ -579,7 +579,7 @@ async def main():
     print("Waiting for SeedLink (20s)...")
     await asyncio.sleep(20)
     port=int(os.environ.get("PORT",8766))
-    async with websockets.serve(handler,"0.0.0.0",port):
+    async with websockets.serve(handler,"127.0.0.1",port):
         print(f"EWS WebSocket port {port}")
         asyncio.create_task(trigger_processor())
         await asyncio.Future()
