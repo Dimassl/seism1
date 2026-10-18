@@ -18,6 +18,6 @@ jobs:
           source venv/bin/activate
           pip install -r requirements.txt
           deactivate
-          sudo systemctl restart seism2 seism-ews
-          systemctl is-active seism-seismo
+          sudo systemctl restart seism-2 seism-ews
+          systemctl is-active seism-2
           systemctl is-active seism-ews
