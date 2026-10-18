@@ -17,7 +17,7 @@ STATIONS = [
     {"net": "GE", "sta": "PLAI", "cha": "BHZ", "label": "Sumbawa", "thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "MMRI", "cha": "BHZ", "label": "Maumere","thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SOEI", "cha": "BHZ", "label": "Soe Timor","thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SAUI", "cha": "BHZ", "label": "Tanibar","thr_on": 10.0, "thr_off": 0.8},,
+    {"net": "GE", "sta": "SAUI", "cha": "BHZ", "label": "Tanibar","thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira","thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak","thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "SANI", "cha": "BHZ", "label": "Maluku", "thr_on": 10.0, "thr_off": 0.8},
