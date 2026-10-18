@@ -1,19 +1,29 @@
-name: Deploy ke VPS
+name: Deploy seismo & EWS
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Deploy ke VPS via SSH
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        script: |
-          bash /home/ubuntu/deploy.sh
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 33190
+          script: |
+            set -e
+            cd /www/wwwroot/seism-app
+            git fetch origin main
+            git reset --hard origin/main
+            source venv/bin/activate
+            pip install -r requirements.txt
+            deactivate
+            systemctl restart seism-seismo seism-ews
+            systemctl is-active seism-seismo
+            systemctl is-active seism-ews
