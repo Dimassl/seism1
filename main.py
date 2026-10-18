@@ -15,8 +15,7 @@ STATIONS = [
     # Jawa 
     {"net":"GE","sta":"BBJI", "cha":"BHZ","lat":-7.46,"lon":107.65,"label":"Garut",
      "thr_on":5.5,"thr_off":0.8},
-    {"net":"GE","sta":"UGM",  "cha":"SHZ","lat":-7.91,"lon":110.52,"label":"WanaGAMA",
-     "thr_on":7.4,"thr_off":1.0},   
+    {"net":"GE","sta":"UGM",  "cha":"BHZ","lat":-7.91,"lon":110.52,"label":"WanaGAMA",,   
     {"net":"GE","sta":"JAGI", "cha":"BHZ","lat":-8.47,"lon":114.15,"label":"Banyuwangi",
      "thr_on":8.5,"thr_off":0.7},
     {"net":"GE","sta":"SMRI", "cha":"BHZ","lat":-7.050,"lon":110.440,"label":"Semarang",
