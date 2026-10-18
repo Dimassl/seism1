@@ -20,7 +20,7 @@ STATIONS = [
     {"net": "GE", "sta": "SAUI", "cha": "BHZ", "label": "Tanibar","thr_on": 10.0, "thr_off": 0.8},,
     {"net": "GE", "sta": "BNDI", "cha": "BHZ", "label": "BandaNeira","thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "FAKI", "cha": "BHZ", "label": "FakFak","thr_on": 10.0, "thr_off": 0.8},
-    {"net": "GE", "sta": "SANI", "cha": "BHZ", "label": "Maluku", "thr_on": 10.0, "thr_off": 0.8},,
+    {"net": "GE", "sta": "SANI", "cha": "BHZ", "label": "Maluku", "thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "TNTI", "cha": "BHZ", "label": "Ternate", "thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "LUWI", "cha": "BHZ", "label": "Luwu Sulawesi", "thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "TOLI2", "cha": "BHZ", "label": "ToliToli", "thr_on": 10.0, "thr_off": 0.8},
