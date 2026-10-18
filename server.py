@@ -8,6 +8,7 @@ import websockets, os
 from datetime import datetime, timezone
 
 # 
+
 STATIONS = [
     {"net": "GE", "sta": "UGM",  "cha": "SHZ", "label": "WanaGAMA", "thr_on": 10.0, "thr_off": 0.8},
     {"net": "GE", "sta": "JAGI", "cha": "BHZ", "label": "Banyuwangi", "thr_on": 10.0, "thr_off": 0.8},
